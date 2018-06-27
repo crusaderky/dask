@@ -2350,18 +2350,46 @@ def test_vindex_basic():
     assert_eq(result, x[:2, ::-1])
 
 
-def test_vindex_nd():
+@pytest.mark.parametrize('idx', [
+    ([[0, 1], [6, 0]], [[0, 1], [0, 7]]),
+    (np.array([[0, 1], [6, 0]]), np.array([[0, 1], [0, 7]])),
+    (da.from_array([[0, 1], [6, 0]], chunks=1),
+     da.from_array([[0, 1], [0, 7]], chunks=1)),
+])
+def test_vindex_nd_1(idx):
     x = np.arange(56).reshape((7, 8))
     d = da.from_array(x, chunks=(3, 4))
 
-    result = d.vindex[[[0, 1], [6, 0]], [[0, 1], [0, 7]]]
+    result = d.vindex[idx]
     assert_eq(result, x[[[0, 1], [6, 0]], [[0, 1], [0, 7]]])
+
+
+def test_vindex_nd_2():
+    x = np.arange(56).reshape((7, 8))
+    d = da.from_array(x, chunks=(3, 4))
 
     result = d.vindex[np.arange(7)[:, None], np.arange(8)[None, :]]
     assert_eq(result, x)
 
     result = d.vindex[np.arange(7)[None, :], np.arange(8)[:, None]]
     assert_eq(result, x.T)
+
+
+def test_vindex_daskindex_nocompute():
+    """Test that when the indices of a vindex[] are a dask array,
+    they are not accidentally computed
+    """
+    x = np.arange(56).reshape((7, 8))
+    d = da.from_array(x, chunks=-1)
+
+    def crash():
+        raise NotImplementedError()
+
+    idx = da.Array({('x', 0, 0): (crash, )}, name='x',
+                   chunks=((2, ), (2, )), dtype=np.int64)
+    result = d.vindex[idx, idx]
+    with pytest.raises(NotImplementedError):
+        result.compute()
 
 
 def test_vindex_negative():
