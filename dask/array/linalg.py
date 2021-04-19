@@ -1005,8 +1005,8 @@ def lu(a):
     hdim = len(a.chunks[1])
 
     token = tokenize(a)
+    name = "lu-" + token
     name_lu = "lu-lu-" + token
-
     name_p = "lu-p-" + token
     name_l = "lu-l-" + token
     name_u = "lu-u-" + token
@@ -1094,15 +1094,10 @@ def lu(a):
     ll_meta = meta_from_array(a, dtype=ll.dtype)
     uu_meta = meta_from_array(a, dtype=uu.dtype)
 
-    graph = HighLevelGraph.from_collections(name_p, dsk, dependencies=[a])
+    graph = HighLevelGraph.from_collections(name, dsk, dependencies=[a])
     p = Array(graph, name_p, shape=a.shape, chunks=a.chunks, meta=pp_meta)
-
-    graph = HighLevelGraph.from_collections(name_l, dsk, dependencies=[a])
     l = Array(graph, name_l, shape=a.shape, chunks=a.chunks, meta=ll_meta)
-
-    graph = HighLevelGraph.from_collections(name_u, dsk, dependencies=[a])
     u = Array(graph, name_u, shape=a.shape, chunks=a.chunks, meta=uu_meta)
-
     return p, l, u
 
 
@@ -1309,8 +1304,8 @@ def _cholesky(a):
 
     token = tokenize(a)
     name = "cholesky-" + token
-
-    # (name_lt_dot, i, j, k, l) corresponds to l_ij.dot(l_kl.T)
+    name_lower = "cholesky-lower-" + token
+    # (name_lt_dot, i, j, k, l) corresponds to l_ij @ l_kl.T
     name_lt_dot = "cholesky-lt-dot-" + token
     # because transposed results are needed for calculation,
     # we can build graph for upper triangular simultaneously
@@ -1318,45 +1313,49 @@ def _cholesky(a):
 
     # calculates lower triangulars because subscriptions get simpler
     dsk = {}
+
     for i in range(vdim):
         for j in range(hdim):
             if i < j:
-                dsk[name, i, j] = (np.zeros, (a.chunks[0][i], a.chunks[1][j]))
-                dsk[name_upper, j, i] = (name, i, j)
+                dsk[name_lower, i, j] = (np.zeros, (a.chunks[0][i], a.chunks[1][j]))
+                dsk[name_upper, j, i] = (name_lower, i, j)
             elif i == j:
                 target = (a.name, i, j)
                 if i > 0:
                     prevs = []
                     for p in range(i):
                         prev = name_lt_dot, i, p, i, p
-                        dsk[prev] = (np.dot, (name, i, p), (name_upper, p, i))
+                        dsk[prev] = (np.dot, (name_lower, i, p), (name_upper, p, i))
                         prevs.append(prev)
                     target = (operator.sub, target, (sum, prevs))
-                dsk[name, i, i] = (_cholesky_lower, target)
-                dsk[name_upper, i, i] = (np.transpose, (name, i, i))
+                dsk[name_lower, i, i] = (_cholesky_lower, target)
+                dsk[name_upper, i, i] = (np.transpose, (name_lower, i, i))
             else:
-                # solving x.dot(L11.T) = (A21 - L20.dot(L10.T)) is equal to
-                # L11.dot(x.T) = A21.T - L10.dot(L20.T)
-                # L11.dot(x.T) = A12 - L10.dot(L02)
+                # solving x @ L11.T = (A21 - L20 @ L10.T) is equal to
+                # L11 @ x.T = A21.T - L10 @ L20.T
+                # L11 @ x.T = A12 - L10 @ L02
                 target = (a.name, j, i)
                 if j > 0:
                     prevs = []
                     for p in range(j):
                         prev = name_lt_dot, j, p, i, p
-                        dsk[prev] = (np.dot, (name, j, p), (name_upper, p, i))
+                        dsk[prev] = (np.dot, (name_lower, j, p), (name_upper, p, i))
                         prevs.append(prev)
                     target = (operator.sub, target, (sum, prevs))
-                dsk[name_upper, j, i] = (_solve_triangular_lower, (name, j, j), target)
-                dsk[name, i, j] = (np.transpose, (name_upper, j, i))
+                dsk[name_upper, j, i] = (
+                    _solve_triangular_lower,
+                    (name_lower, j, j),
+                    target,
+                )
+                dsk[name_lower, i, j] = (np.transpose, (name_upper, j, i))
 
-    graph_upper = HighLevelGraph.from_collections(name_upper, dsk, dependencies=[a])
-    graph_lower = HighLevelGraph.from_collections(name, dsk, dependencies=[a])
+    graph = HighLevelGraph.from_collections(name, dsk, dependencies=[a])
     cho = scipy.linalg.cholesky(np.array([[1, 2], [2, 5]], dtype=a.dtype))
     meta = meta_from_array(a, dtype=cho.dtype)
 
-    lower = Array(graph_lower, name, shape=a.shape, chunks=a.chunks, meta=meta)
+    lower = Array(graph, name_lower, shape=a.shape, chunks=a.chunks, meta=meta)
     # do not use .T, because part of transposed blocks are already calculated
-    upper = Array(graph_upper, name_upper, shape=a.shape, chunks=a.chunks, meta=meta)
+    upper = Array(graph, name_upper, shape=a.shape, chunks=a.chunks, meta=meta)
     return lower, upper
 
 

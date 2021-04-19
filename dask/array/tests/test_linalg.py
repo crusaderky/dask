@@ -1060,3 +1060,22 @@ def test_norm_implemented_errors(shape, chunks, axis, norm, keepdims):
     if len(shape) > 2 and len(axis) == 2:
         with pytest.raises(NotImplementedError):
             da.linalg.norm(d, ord=norm, axis=axis, keepdims=keepdims)
+
+
+@pytest.mark.parametrize("chunks", [-1, 2])
+def test_lu_duplicated_keys(chunks):
+    """Test that da.linalg.lu does not contain duplicate keys in different layers,
+    which in turn would produce incorrect results in HighLevelGraph.__len__"""
+    a = da.random.random((4, 4), chunks=chunks)
+    assert len(a.dask) == len(a.dask.to_dict())
+
+
+@pytest.mark.parametrize("sym_pos", [False, True])
+@pytest.mark.parametrize("chunks", [-1, 2])
+def test_solve_duplicated_keys(sym_pos, chunks):
+    """Test that da.linalg.solve does not contain duplicate keys in different layers,
+    which in turn would produce incorrect results in HighLevelGraph.__len__"""
+    a = da.random.random((4, 4), chunks=chunks)
+    b = da.random.random((4, 4), chunks=chunks)
+    c = da.linalg.solve(a, b, sym_pos=sym_pos)
+    assert len(c.dask) == len(c.dask.to_dict())
