@@ -122,12 +122,13 @@ def register_rmm():
 def register_numpy():
     import numpy as np
 
+    empty_array_size = sys.getsizeof(np.empty(0))
+
     @sizeof.register(np.ndarray)
     def sizeof_numpy_ndarray(x):
         if 0 in x.strides:
-            xs = x[tuple(slice(None) if s != 0 else slice(1) for s in x.strides)]
-            return xs.nbytes
-        return int(x.nbytes)
+            x = x[tuple(slice(None) if s != 0 else slice(1) for s in x.strides)]
+        return x.nbytes + empty_array_size
 
 
 @sizeof.register_lazy("pandas")
