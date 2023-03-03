@@ -27,6 +27,8 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from dask.utils import apply, import_required, natural_sort_key, parse_bytes
 
+from distributed.metrics import context_meter
+
 __all__ = ("read_parquet", "to_parquet")
 
 NONE_LABEL = "__null_dask_index__"
@@ -157,6 +159,7 @@ class ToParquetFunctionWrapper:
             self.kwargs_pass,
         )
 
+    @context_meter.meter("I/O")
     def __call__(self, df, block_index: tuple[int]):
         # Get partition index from block index tuple
         part_i = block_index[0]
@@ -646,6 +649,7 @@ def check_multi_support(engine):
     return hasattr(engine, "multi_support") and engine.multi_support()
 
 
+@context_meter.meter("I/O")
 def read_parquet_part(fs, engine, meta, part, columns, index, kwargs):
     """Read a part of a parquet dataset
 
