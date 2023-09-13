@@ -58,6 +58,7 @@ from dask.blockwise import broadcast_dimensions
 from dask.context import globalmethod
 from dask.core import quote
 from dask.delayed import Delayed, delayed
+from dask.graph_manipulation import checkpoint
 from dask.highlevelgraph import HighLevelGraph, MaterializedLayer
 from dask.layers import ArraySliceDep, reshapelist
 from dask.sizeof import sizeof
@@ -1074,8 +1075,8 @@ def store(
     regions: tuple[slice, ...] | Collection[tuple[slice, ...]] | None = None,
     compute: bool = True,
     return_stored: bool = False,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """Store dask arrays in array-like objects, overwrite data in target
 
     This stores dask arrays into object that supports numpy-style setitem
@@ -1231,17 +1232,24 @@ def store(
             for s, n in zip(sources, map_names)
         )
 
-    elif compute:
-        store_dsk = HighLevelGraph(layers, dependencies)
-        compute_as_if_collection(Array, store_dsk, map_keys, **kwargs)
-        return None
-
     else:
-        key = "store-" + tokenize(map_names)
-        layers[key] = {key: map_keys}
-        dependencies[key] = set(map_names)
-        store_dsk = HighLevelGraph(layers, dependencies)
-        return Delayed(key, store_dsk)
+        dsk = HighLevelGraph(layers, dependencies)
+        map_collections = [
+            Array(
+                dsk,
+                name=n,
+                chunks=[(1,) * len(layers[n])],  # dummy
+                shape=(len(layers[n]),),  # dummy
+                dtype=float,  # dummy
+            )
+            for n in map_names
+        ]
+
+        chp = checkpoint(*map_collections, split_every=64)
+        if compute:
+            return chp.compute(optimize_graph=False, **kwargs)
+        else:
+            return chp
 
 
 def blockdims_from_blockshape(shape, chunks):
