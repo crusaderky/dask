@@ -6322,3 +6322,7 @@ def test_enforce_runtime_divisions():
         RuntimeError, match="`enforce_runtime_divisions` failed for partition 1"
     ):
         ddf.enforce_runtime_divisions().compute()
+
+
+def test_failme():
+    assert False
