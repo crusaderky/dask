@@ -51,9 +51,11 @@ properties:
         properties:
 
           method:
-            type:
-            - string
-            - "null"
+            enum:
+            - disk
+            - tasks
+            - p2p
+            - null
             description: |
               The default shuffle method to choose. Possible values are disk,
               tasks, p2p. If null, pick best method depending on application.
@@ -118,7 +120,9 @@ properties:
         properties:
           
           method:
-            type: string
+            enum:
+            - tasks
+            - p2p
             description: |
               The method to use for rechunking. Must be either "tasks" or "p2p";
               default is "tasks". Using "p2p" requires a distributed cluster.

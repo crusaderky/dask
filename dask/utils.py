@@ -2241,23 +2241,16 @@ def is_namedtuple_instance(obj: Any) -> bool:
     )
 
 
-def get_default_shuffle_method() -> str:
+def get_default_shuffle_method() -> Literal["disk", "tasks", "p2p"]:
     if d := config.get("dataframe.shuffle.method", None):
         return d
     try:
         from distributed import default_client
 
         default_client()
+        return "p2p"
     except (ImportError, ValueError):
         return "disk"
-
-    try:
-        from distributed.shuffle import check_minimal_arrow_version
-
-        check_minimal_arrow_version()
-    except ModuleNotFoundError:
-        return "tasks"
-    return "p2p"
 
 
 def get_meta_library(like):
