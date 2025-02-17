@@ -84,6 +84,24 @@ def test_meta_from_array_type_inputs():
     assert da.from_array(np.ones(5).astype(np.int32), meta=np.ndarray).dtype == np.int32
 
 
+
+def test_meta_from_array_pydata_sparse():
+    sparse = pytest.importorskip("sparse")
+
+    x = sparse.asarray((2, 3))
+    meta = meta_from_array(x)
+    assert isinstance(meta, type(x))
+
+    for ndim in range(4):
+        meta = meta_from_array(x, ndim=ndim)
+        assert isinstance(meta, type(x))
+        assert meta.shape == (0,) * ndim
+
+    meta = meta_from_array(x, dtype=np.float32)
+    assert isinstance(meta, type(x))
+    assert meta.dtype == np.float32
+
+
 @pytest.mark.parametrize(
     "a,b",
     [

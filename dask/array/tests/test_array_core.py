@@ -5831,3 +5831,33 @@ def test_setitem_no_dtype_broadcast(idx, val):
     x = da.array([1, 2], dtype=np.int32)
     x[idx] = val
     assert_eq(x, da.array([3, 2], dtype=np.int32))
+
+
+def test_pydata_sparse_scalar():
+    """sparse.COO reductions to 0 dimensions return
+    a np.generic, but zero-dimensional sparse.COO also exists.
+    """
+    sparse = pytest.importorskip("sparse")
+
+    x = da.from_array(sparse.asarray([1, 2]))
+    assert isinstance(x._meta, sparse.COO)
+    assert isinstance(x.compute(), sparse.COO)
+
+    x = x.sum()
+    assert isinstance(x._meta, np.ndarray)
+    assert isinstance(x.compute(), np.generic)
+
+    x = da.from_array(sparse.asarray(0))
+    assert isinstance(x._meta, sparse.COO)
+    assert isinstance(x.compute(), sparse.COO)
+
+    x = da.asarray(0).map_blocks(sparse.asarray)
+    assert isinstance(x._meta, sparse.COO)
+    assert isinstance(x.compute(), sparse.COO)
+
+    # Force a reshape of the meta
+    x = da.asarray(0)
+    meta = sparse.asarray([1, 2])
+    x = x.map_blocks(sparse.asarray, dtype=x.dtype, meta=meta)
+    assert isinstance(x._meta, sparse.COO)
+    assert isinstance(x.compute(), sparse.COO)
