@@ -4,6 +4,8 @@ from types import ModuleType
 
 import pytest
 
+pytestmark = pytest.mark.normal_and_array_expr
+
 pytest.importorskip("numpy")
 
 DA_EXPORTED_SUBMODULES = {"backends", "fft", "lib", "linalg", "ma", "overlap", "random"}
@@ -16,17 +18,15 @@ def test_api():
     member_dict = vars(da)
     members = set(member_dict)
     # unexported submodules
-    members -= {"tests"}
-    members -= {
+    ignore_modules = {
         m
         for m, mod in member_dict.items()
         if m not in DA_EXPORTED_SUBMODULES
-        if isinstance(mod, ModuleType) and mod.__package__ == "dask.array"
+        and isinstance(mod, ModuleType)
     }
-    # imported utility modules
-    members -= {"annotations", "builtins", "importlib", "warnings"}
+    members -= ignore_modules
     # private utilities and `__dunder__` members
-    members -= {"ARRAY_EXPR_ENABLED"}
+    members -= {"annotations", "ARRAY_EXPR_ENABLED", "raise_not_implemented_error"}
     members -= {m for m in members if m.startswith("_")}
 
     assert set(da.__all__) == members
