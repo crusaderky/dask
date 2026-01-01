@@ -257,6 +257,7 @@ __all__ = [
     "degrees",
     "divide",
     "divmod",
+    "elemwise",
     "equal",
     "exp",
     "exp2",
@@ -360,7 +361,30 @@ try:
         uint64,
     )
 
-    from dask.array import backends, fft, lib, linalg, ma, overlap, random
+except ImportError as e:  # pragma: no cover
+    msg = (
+        "Dask array requirements are not installed.\n\n"
+        "Please either conda or pip install as follows:\n\n"
+        "  conda install dask                 # either conda install\n"
+        '  python -m pip install "dask[array]" --upgrade  # or python -m pip install'
+    )
+    raise ImportError(f"{e}\n\n{msg}") from e
+
+
+# These names collide between dask.array submodules and dask.array._array_expr objects.
+# This causes an issue where the legacy module is loaded instead in some cases:
+# >>> import dask.array.gufunc
+# >>> dask.array.gufunc  # Should be <class 'dask.array._array_expr._gufunc.gufunc'>
+# <module 'dask.array.gufunc' ...>
+# The unconditional imports below work around the problem.
+import dask.array.blockwise
+import dask.array.gufunc
+import dask.array.rechunk
+import dask.array.reshape
+from dask.array import backends, fft, lib, linalg, ma, overlap, random
+
+
+if not _array_expr_enabled():
     from dask.array._shuffle import shuffle
     from dask.array.blockwise import atop, blockwise
     from dask.array.chunk_types import register_chunk_type
@@ -373,6 +397,7 @@ try:
         broadcast_arrays,
         broadcast_to,
         concatenate,
+        elemwise,
         from_array,
         from_delayed,
         from_npy_stack,
@@ -625,22 +650,7 @@ try:
     from dask.array.wrap import empty, full, ones, zeros
     from dask.base import compute
 
-    if _array_expr_enabled():
-        import dask.array._array_expr as da
-
-        da = importlib.reload(da)
-
-except ImportError as e:  # pragma: no cover
-    msg = (
-        "Dask array requirements are not installed.\n\n"
-        "Please either conda or pip install as follows:\n\n"
-        "  conda install dask                 # either conda install\n"
-        '  python -m pip install "dask[array]" --upgrade  # or python -m pip install'
-    )
-    raise ImportError(f"{e}\n\n{msg}") from e
-
-
-if _array_expr_enabled():
+else:  # array query planning is enabled
 
     def raise_not_implemented_error(attr_name):
         def inner_func(*args, **kwargs):
@@ -650,282 +660,283 @@ if _array_expr_enabled():
 
         return inner_func
 
-    try:
-        from dask.array._array_expr import (  # type: ignore[assignment, no-redef]
-            Array,
-            abs,
-            absolute,
-            add,
-            angle,
-            apply_gufunc,
-            arange,
-            arccos,
-            arccosh,
-            arcsin,
-            arcsinh,
-            arctan,
-            arctan2,
-            arctanh,
-            array,
-            as_gufunc,
-            asanyarray,
-            asarray,
-            bitwise_and,
-            bitwise_not,
-            bitwise_or,
-            bitwise_xor,
-            blockwise,
-            cbrt,
-            ceil,
-            clip,
-            concatenate,
-            conj,
-            copysign,
-            cos,
-            cosh,
-            deg2rad,
-            degrees,
-            divide,
-            divmod,
-            elemwise,
-            empty,
-            empty_like,
-            equal,
-            exp,
-            exp2,
-            expm1,
-            fabs,
-            fix,
-            float_power,
-            floor,
-            floor_divide,
-            fmax,
-            fmin,
-            fmod,
-            frexp,
-            from_array,
-            frompyfunc,
-            full,
-            full_like,
-            greater,
-            greater_equal,
-            gufunc,
-            hypot,
-            i0,
-            imag,
-            invert,
-            iscomplex,
-            isfinite,
-            isinf,
-            isnan,
-            isneginf,
-            isposinf,
-            isreal,
-            ldexp,
-            left_shift,
-            less,
-            less_equal,
-            linspace,
-            log,
-            log1p,
-            log2,
-            log10,
-            logaddexp,
-            logaddexp2,
-            logical_and,
-            logical_not,
-            logical_or,
-            logical_xor,
-            map_blocks,
-            map_overlap,
-            maximum,
-            minimum,
-            mod,
-            modf,
-            multiply,
-            nan_to_num,
-            negative,
-            nextafter,
-            not_equal,
-            ones,
-            ones_like,
-            positive,
-            power,
-            rad2deg,
-            radians,
-            random,
-            real,
-            rechunk,
-            reciprocal,
-            reduction,
-            remainder,
-            repeat,
-            right_shift,
-            rint,
-            sign,
-            signbit,
-            sin,
-            sinc,
-            sinh,
-            spacing,
-            sqrt,
-            square,
-            stack,
-            subtract,
-            tan,
-            tanh,
-            true_divide,
-            trunc,
-            zeros,
-            zeros_like,
-        )
-        from dask.array._array_expr import _overlap as overlap  # type: ignore[no-redef]
-        from dask.array.reductions import (
-            all,
-            any,
-            max,
-            mean,
-            min,
-            moment,
-            nanmax,
-            nanmean,
-            nanmin,
-            nanprod,
-            nanstd,
-            nansum,
-            nanvar,
-            prod,
-            reduction,
-            std,
-            sum,
-            var,
-        )
+    from dask.array._array_expr import (  # type: ignore[assignment, no-redef]
+        Array,
+        abs,
+        absolute,
+        add,
+        angle,
+        apply_gufunc,
+        arange,
+        arccos,
+        arccosh,
+        arcsin,
+        arcsinh,
+        arctan,
+        arctan2,
+        arctanh,
+        array,
+        as_gufunc,
+        asanyarray,
+        asarray,
+        bitwise_and,
+        bitwise_not,
+        bitwise_or,
+        bitwise_xor,
+        blockwise,
+        cbrt,
+        ceil,
+        clip,
+        concatenate,
+        conj,
+        copysign,
+        cos,
+        cosh,
+        deg2rad,
+        degrees,
+        divide,
+        divmod,
+        elemwise,
+        empty,
+        empty_like,
+        equal,
+        exp,
+        exp2,
+        expm1,
+        fabs,
+        fix,
+        float_power,
+        floor,
+        floor_divide,
+        fmax,
+        fmin,
+        fmod,
+        frexp,
+        from_array,
+        frompyfunc,
+        full,
+        full_like,
+        greater,
+        greater_equal,
+        gufunc,
+        hypot,
+        i0,
+        imag,
+        invert,
+        iscomplex,
+        isfinite,
+        isinf,
+        isnan,
+        isneginf,
+        isposinf,
+        isreal,
+        ldexp,
+        left_shift,
+        less,
+        less_equal,
+        linspace,
+        log,
+        log1p,
+        log2,
+        log10,
+        logaddexp,
+        logaddexp2,
+        logical_and,
+        logical_not,
+        logical_or,
+        logical_xor,
+        map_blocks,
+        map_overlap,
+        maximum,
+        minimum,
+        mod,
+        modf,
+        multiply,
+        nan_to_num,
+        negative,
+        nextafter,
+        not_equal,
+        ones,
+        ones_like,
+        positive,
+        power,
+        rad2deg,
+        radians,
+        random,
+        real,
+        rechunk,
+        reciprocal,
+        reduction,
+        remainder,
+        repeat,
+        right_shift,
+        rint,
+        sign,
+        signbit,
+        sin,
+        sinc,
+        sinh,
+        spacing,
+        sqrt,
+        square,
+        stack,
+        subtract,
+        tan,
+        tanh,
+        true_divide,
+        trunc,
+        zeros,
+        zeros_like,
+    )
 
-        backends = raise_not_implemented_error("backends")
-        fft = raise_not_implemented_error("fft")
-        lib = raise_not_implemented_error("lib")
-        linalg = raise_not_implemented_error("linalg")
-        ma = raise_not_implemented_error("ma")
-        atop = raise_not_implemented_error("atop")
-        register_chunk_type = raise_not_implemented_error("register_chunk_type")
-        block = raise_not_implemented_error("block")
-        broadcast_arrays = raise_not_implemented_error("broadcast_arrays")
-        broadcast_to = raise_not_implemented_error("broadcast_to")
-        from_delayed = raise_not_implemented_error("from_delayed")
-        from_npy_stack = raise_not_implemented_error("from_npy_stack")
-        from_zarr = raise_not_implemented_error("from_zarr")
-        store = raise_not_implemented_error("store")
-        to_hdf5 = raise_not_implemented_error("to_hdf5")
-        to_npy_stack = raise_not_implemented_error("to_npy_stack")
-        to_zarr = raise_not_implemented_error("to_zarr")
-        unify_chunks = raise_not_implemented_error("unify_chunks")
-        diag = raise_not_implemented_error("diag")
-        diagonal = raise_not_implemented_error("diagonal")
-        eye = raise_not_implemented_error("eye")
-        fromfunction = raise_not_implemented_error("fromfunction")
-        indices = raise_not_implemented_error("indices")
-        meshgrid = raise_not_implemented_error("meshgrid")
-        pad = raise_not_implemented_error("pad")
-        tile = raise_not_implemented_error("tile")
-        tri = raise_not_implemented_error("tri")
-        moveaxis = raise_not_implemented_error("moveaxis")
-        rollaxis = raise_not_implemented_error("rollaxis")
-        optimize = raise_not_implemented_error("optimize")
-        percentile = raise_not_implemented_error("percentile")
-        argmax = raise_not_implemented_error("argmax")
-        argmin = raise_not_implemented_error("argmin")
-        argtopk = raise_not_implemented_error("argtopk")
-        cumprod = raise_not_implemented_error("cumprod")
-        cumsum = raise_not_implemented_error("cumsum")
-        median = raise_not_implemented_error("median")
-        nanargmax = raise_not_implemented_error("nanargmax")
-        nanargmin = raise_not_implemented_error("nanargmin")
-        nancumprod = raise_not_implemented_error("nancumprod")
-        nancumsum = raise_not_implemented_error("nancumsum")
-        nanmedian = raise_not_implemented_error("nanmedian")
-        topk = raise_not_implemented_error("topk")
-        trace = raise_not_implemented_error("trace")
-        reshape = raise_not_implemented_error("reshape")
-        allclose = raise_not_implemented_error("allclose")
-        append = raise_not_implemented_error("append")
-        apply_along_axis = raise_not_implemented_error("apply_along_axis")
-        apply_over_axes = raise_not_implemented_error("apply_over_axes")
-        argwhere = raise_not_implemented_error("argwhere")
-        around = raise_not_implemented_error("around")
-        atleast_1d = raise_not_implemented_error("atleast_1d")
-        atleast_2d = raise_not_implemented_error("atleast_2d")
-        atleast_3d = raise_not_implemented_error("atleast_3d")
-        average = raise_not_implemented_error("average")
-        bincount = raise_not_implemented_error("bincount")
-        choose = raise_not_implemented_error("choose")
-        coarsen = raise_not_implemented_error("coarsen")
-        compress = raise_not_implemented_error("compress")
-        corrcoef = raise_not_implemented_error("corrcoef")
-        count_nonzero = raise_not_implemented_error("count_nonzero")
-        cov = raise_not_implemented_error("cov")
-        delete = raise_not_implemented_error("delete")
-        diff = raise_not_implemented_error("diff")
-        digitize = raise_not_implemented_error("digitize")
-        dot = raise_not_implemented_error("dot")
-        dstack = raise_not_implemented_error("dstack")
-        ediff1d = raise_not_implemented_error("ediff1d")
-        einsum = raise_not_implemented_error("einsum")
-        expand_dims = raise_not_implemented_error("expand_dims")
-        extract = raise_not_implemented_error("extract")
-        flatnonzero = raise_not_implemented_error("flatnonzero")
-        flip = raise_not_implemented_error("flip")
-        fliplr = raise_not_implemented_error("fliplr")
-        flipud = raise_not_implemented_error("flipud")
-        gradient = raise_not_implemented_error("gradient")
-        histogram = raise_not_implemented_error("histogram")
-        histogram2d = raise_not_implemented_error("histogram2d")
-        histogramdd = raise_not_implemented_error("histogramdd")
-        hstack = raise_not_implemented_error("hstack")
-        insert = raise_not_implemented_error("insert")
-        isclose = raise_not_implemented_error("isclose")
-        isin = raise_not_implemented_error("isin")
-        isnull = raise_not_implemented_error("isnull")
-        matmul = raise_not_implemented_error("matmul")
-        ndim = raise_not_implemented_error("ndim")
-        nonzero = raise_not_implemented_error("nonzero")
-        notnull = raise_not_implemented_error("notnull")
-        outer = raise_not_implemented_error("outer")
-        piecewise = raise_not_implemented_error("piecewise")
-        ptp = raise_not_implemented_error("ptp")
-        ravel = raise_not_implemented_error("ravel")
-        ravel_multi_index = raise_not_implemented_error("ravel_multi_index")
-        result_type = raise_not_implemented_error("result_type")
-        roll = raise_not_implemented_error("roll")
-        rot90 = raise_not_implemented_error("rot90")
-        round = raise_not_implemented_error("round")
-        searchsorted = raise_not_implemented_error("searchsorted")
-        select = raise_not_implemented_error("select")
-        shape = raise_not_implemented_error("shape")
-        squeeze = raise_not_implemented_error("squeeze")
-        swapaxes = raise_not_implemented_error("swapaxes")
-        take = raise_not_implemented_error("take")
-        tensordot = raise_not_implemented_error("tensordot")
-        transpose = raise_not_implemented_error("transpose")
-        tril = raise_not_implemented_error("tril")
-        tril_indices = raise_not_implemented_error("tril_indices")
-        tril_indices_from = raise_not_implemented_error("tril_indices_from")
-        triu = raise_not_implemented_error("triu")
-        triu_indices = raise_not_implemented_error("triu_indices")
-        triu_indices_from = raise_not_implemented_error("triu_indices_from")
-        union1d = raise_not_implemented_error("union1d")
-        unique = raise_not_implemented_error("unique")
-        unravel_index = raise_not_implemented_error("unravel_index")
-        vdot = raise_not_implemented_error("vdot")
-        vstack = raise_not_implemented_error("vstack")
-        where = raise_not_implemented_error("where")
-        from_tiledb = raise_not_implemented_error("from_tiledb")
-        to_tiledb = raise_not_implemented_error("to_tiledb")
+    from dask.array._array_expr import _overlap as overlap  # type: ignore[no-redef]
+    from dask.array._array_expr import _shuffle as shuffle  # type: ignore[no-redef]
+    from dask.array.reductions import (
+        all,
+        any,
+        max,
+        mean,
+        min,
+        moment,
+        nanmax,
+        nanmean,
+        nanmin,
+        nanprod,
+        nanquantile,
+        nanstd,
+        nansum,
+        nanvar,
+        prod,
+        quantile,
+        reduction,
+        std,
+        sum,
+        var,
+    )
 
-        from dask.array.utils import assert_eq
-        from dask.base import compute
+    backends = raise_not_implemented_error("backends")
+    fft = raise_not_implemented_error("fft")
+    lib = raise_not_implemented_error("lib")
+    linalg = raise_not_implemented_error("linalg")
+    ma = raise_not_implemented_error("ma")
+    atop = raise_not_implemented_error("atop")
+    register_chunk_type = raise_not_implemented_error("register_chunk_type")
+    block = raise_not_implemented_error("block")
+    broadcast_arrays = raise_not_implemented_error("broadcast_arrays")
+    broadcast_to = raise_not_implemented_error("broadcast_to")
+    from_delayed = raise_not_implemented_error("from_delayed")
+    from_npy_stack = raise_not_implemented_error("from_npy_stack")
+    from_zarr = raise_not_implemented_error("from_zarr")
+    store = raise_not_implemented_error("store")
+    to_hdf5 = raise_not_implemented_error("to_hdf5")
+    to_npy_stack = raise_not_implemented_error("to_npy_stack")
+    to_zarr = raise_not_implemented_error("to_zarr")
+    unify_chunks = raise_not_implemented_error("unify_chunks")
+    diag = raise_not_implemented_error("diag")
+    diagonal = raise_not_implemented_error("diagonal")
+    eye = raise_not_implemented_error("eye")
+    fromfunction = raise_not_implemented_error("fromfunction")
+    indices = raise_not_implemented_error("indices")
+    meshgrid = raise_not_implemented_error("meshgrid")
+    pad = raise_not_implemented_error("pad")
+    tile = raise_not_implemented_error("tile")
+    tri = raise_not_implemented_error("tri")
+    moveaxis = raise_not_implemented_error("moveaxis")
+    rollaxis = raise_not_implemented_error("rollaxis")
+    optimize = raise_not_implemented_error("optimize")
+    percentile = raise_not_implemented_error("percentile")
+    nanpercentile = raise_not_implemented_error("nanpercentile")
+    argmax = raise_not_implemented_error("argmax")
+    argmin = raise_not_implemented_error("argmin")
+    argtopk = raise_not_implemented_error("argtopk")
+    cumprod = raise_not_implemented_error("cumprod")
+    cumsum = raise_not_implemented_error("cumsum")
+    median = raise_not_implemented_error("median")
+    nanargmax = raise_not_implemented_error("nanargmax")
+    nanargmin = raise_not_implemented_error("nanargmin")
+    nancumprod = raise_not_implemented_error("nancumprod")
+    nancumsum = raise_not_implemented_error("nancumsum")
+    nanmedian = raise_not_implemented_error("nanmedian")
+    topk = raise_not_implemented_error("topk")
+    trace = raise_not_implemented_error("trace")
+    reshape = raise_not_implemented_error("reshape")
+    reshape_blockwise = raise_not_implemented_error("reshape_blockwise")
+    allclose = raise_not_implemented_error("allclose")
+    append = raise_not_implemented_error("append")
+    apply_along_axis = raise_not_implemented_error("apply_along_axis")
+    apply_over_axes = raise_not_implemented_error("apply_over_axes")
+    argwhere = raise_not_implemented_error("argwhere")
+    around = raise_not_implemented_error("around")
+    atleast_1d = raise_not_implemented_error("atleast_1d")
+    atleast_2d = raise_not_implemented_error("atleast_2d")
+    atleast_3d = raise_not_implemented_error("atleast_3d")
+    average = raise_not_implemented_error("average")
+    bincount = raise_not_implemented_error("bincount")
+    choose = raise_not_implemented_error("choose")
+    coarsen = raise_not_implemented_error("coarsen")
+    compress = raise_not_implemented_error("compress")
+    corrcoef = raise_not_implemented_error("corrcoef")
+    count_nonzero = raise_not_implemented_error("count_nonzero")
+    cov = raise_not_implemented_error("cov")
+    delete = raise_not_implemented_error("delete")
+    diff = raise_not_implemented_error("diff")
+    digitize = raise_not_implemented_error("digitize")
+    dot = raise_not_implemented_error("dot")
+    dstack = raise_not_implemented_error("dstack")
+    ediff1d = raise_not_implemented_error("ediff1d")
+    einsum = raise_not_implemented_error("einsum")
+    expand_dims = raise_not_implemented_error("expand_dims")
+    extract = raise_not_implemented_error("extract")
+    flatnonzero = raise_not_implemented_error("flatnonzero")
+    flip = raise_not_implemented_error("flip")
+    fliplr = raise_not_implemented_error("fliplr")
+    flipud = raise_not_implemented_error("flipud")
+    gradient = raise_not_implemented_error("gradient")
+    histogram = raise_not_implemented_error("histogram")
+    histogram2d = raise_not_implemented_error("histogram2d")
+    histogramdd = raise_not_implemented_error("histogramdd")
+    hstack = raise_not_implemented_error("hstack")
+    insert = raise_not_implemented_error("insert")
+    isclose = raise_not_implemented_error("isclose")
+    isin = raise_not_implemented_error("isin")
+    isnull = raise_not_implemented_error("isnull")
+    matmul = raise_not_implemented_error("matmul")
+    ndim = raise_not_implemented_error("ndim")
+    nonzero = raise_not_implemented_error("nonzero")
+    notnull = raise_not_implemented_error("notnull")
+    outer = raise_not_implemented_error("outer")
+    piecewise = raise_not_implemented_error("piecewise")
+    ptp = raise_not_implemented_error("ptp")
+    ravel = raise_not_implemented_error("ravel")
+    ravel_multi_index = raise_not_implemented_error("ravel_multi_index")
+    result_type = raise_not_implemented_error("result_type")
+    roll = raise_not_implemented_error("roll")
+    rot90 = raise_not_implemented_error("rot90")
+    round = raise_not_implemented_error("round")
+    searchsorted = raise_not_implemented_error("searchsorted")
+    select = raise_not_implemented_error("select")
+    shape = raise_not_implemented_error("shape")
+    squeeze = raise_not_implemented_error("squeeze")
+    swapaxes = raise_not_implemented_error("swapaxes")
+    take = raise_not_implemented_error("take")
+    tensordot = raise_not_implemented_error("tensordot")
+    transpose = raise_not_implemented_error("transpose")
+    tril = raise_not_implemented_error("tril")
+    tril_indices = raise_not_implemented_error("tril_indices")
+    tril_indices_from = raise_not_implemented_error("tril_indices_from")
+    triu = raise_not_implemented_error("triu")
+    triu_indices = raise_not_implemented_error("triu_indices")
+    triu_indices_from = raise_not_implemented_error("triu_indices_from")
+    union1d = raise_not_implemented_error("union1d")
+    unique = raise_not_implemented_error("unique")
+    unravel_index = raise_not_implemented_error("unravel_index")
+    vdot = raise_not_implemented_error("vdot")
+    vstack = raise_not_implemented_error("vstack")
+    where = raise_not_implemented_error("where")
+    from_tiledb = raise_not_implemented_error("from_tiledb")
+    to_tiledb = raise_not_implemented_error("to_tiledb")
+    push = raise_not_implemented_error("push")
 
-    # FIXME this should not ever happen
-    except ImportError:  # pragma: no cover
-        import dask.array as da  # type: ignore[no-redef]
-
-        da = importlib.reload(da)
+    from dask.array.core import PerformanceWarning
+    from dask.array.utils import assert_eq
+    from dask.base import compute
