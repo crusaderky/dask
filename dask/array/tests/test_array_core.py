@@ -4998,15 +4998,21 @@ def test_zarr_sharding_roundtrip(tmp_path, chunks, shards):
 
 
 @pytest.mark.parametrize("zarr_format", [2, 3])
-def test_zarr_roundtrip_with_path_like(zarr_format):
-    pytest.importorskip("zarr")
-    with tmpdir() as d:
-        path = pathlib.Path(d)
-        a = da.zeros((3, 3), chunks=(1, 1))
-        a.to_zarr(path, zarr_format=zarr_format)
-        a2 = da.from_zarr(path)
-        assert_eq(a, a2)
-        assert a2.chunks == a.chunks
+def test_zarr_roundtrip_with_path_like(tmp_path, zarr_format):
+    zarr = pytest.importorskip("zarr")
+    zarr_version = int(zarr.__version__.split(".")[0])
+    if zarr_version < 3:
+        if zarr_format == 3:
+            pytest.skip("zarr format 3 requires zarr version 3 or higher")
+        kwargs = {}
+    else:
+        kwargs = {"zarr_format": zarr_format}
+
+    a = da.zeros((3, 3), chunks=(1, 1))
+    a.to_zarr(tmp_path / "test.zarr", **kwargs)
+    a2 = da.from_zarr(tmp_path / "test.zarr")
+    assert_eq(a, a2)
+    assert a2.chunks == a.chunks
 
 
 def test_to_zarr_accepts_empty_array_without_exception_raised():
