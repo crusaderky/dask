@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import copy
-import pathlib
 import re
 import xml.etree.ElementTree
 from typing import Literal
