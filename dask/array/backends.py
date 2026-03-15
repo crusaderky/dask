@@ -13,7 +13,9 @@ from dask.array.dispatch import (
     empty_lookup,
     nannumel_lookup,
     numel_lookup,
+    partition_lookup,
     percentile_lookup,
+    sort_lookup,
     take_lookup,
     tensordot_lookup,
     to_cupy_dispatch,
@@ -32,6 +34,8 @@ empty_lookup.register((object, np.ndarray), np.empty)
 empty_lookup.register(np.ma.masked_array, np.ma.empty)
 divide_lookup.register((object, np.ndarray), np_divide)
 divide_lookup.register(np.ma.masked_array, ma_divide)
+partition_lookup.register((object, np.ndarray, np.ma.masked_array), np.partition)
+sort_lookup.register((object, np.ndarray, np.ma.masked_array), np.sort)
 
 
 @percentile_lookup.register(np.ndarray)
@@ -129,12 +133,16 @@ def _tensordot(a, b, axes=2):
 @nannumel_lookup.register_lazy("cupy")
 @numel_lookup.register_lazy("cupy")
 @to_numpy_dispatch.register_lazy("cupy")
+@partition_lookup.register_lazy("cupy")
+@sort_lookup.register_lazy("cupy")
 def register_cupy():
     import cupy
 
     concatenate_lookup.register(cupy.ndarray, cupy.concatenate)
     take_lookup.register(cupy.ndarray, cupy.take)
     tensordot_lookup.register(cupy.ndarray, cupy.tensordot)
+    partition_lookup.register(cupy.ndarray, cupy.partition)
+    sort_lookup.register(cupy.ndarray, cupy.sort)
     percentile_lookup.register(cupy.ndarray, percentile)
     numel_lookup.register(cupy.ndarray, _numel_arraylike)
     nannumel_lookup.register(cupy.ndarray, _nannumel)
@@ -197,6 +205,8 @@ def register_cupyx():
 @nannumel_lookup.register_lazy("sparse")
 @numel_lookup.register_lazy("sparse")
 @take_lookup.register_lazy("sparse")
+@partition_lookup.register_lazy("sparse")
+@sort_lookup.register_lazy("sparse")
 def register_sparse():
     import sparse
 
@@ -208,6 +218,11 @@ def register_sparse():
     numel_lookup.register(sparse.COO, _numel_ndarray)
     nannumel_lookup.register(sparse.COO, _nannumel_sparse)
     take_lookup.register(sparse.COO, np.take)
+    sort_lookup.register(sparse.COO, sparse.sort)
+
+    @partition_lookup.register(sparse.COO)
+    def _sparse_partition(a, kth, *args, **kwargs):
+        return sparse.sort(a, *args, **kwargs)
 
 
 @tensordot_lookup.register_lazy("scipy")

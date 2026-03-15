@@ -335,6 +335,10 @@ __all__ = [
     "ones",
     "zeros",
     "compute",
+    "sort",
+    "argsort",
+    "partition",
+    "argpartition",
 ]
 
 try:
@@ -520,6 +524,7 @@ try:
         vstack,
         where,
     )
+    from dask.array.sort import argpartition, argsort, partition, sort
     from dask.array.tiledb_io import from_tiledb, to_tiledb
     from dask.array.ufunc import (
         abs,
@@ -920,6 +925,10 @@ if _array_expr_enabled():
         where = raise_not_implemented_error("where")
         from_tiledb = raise_not_implemented_error("from_tiledb")
         to_tiledb = raise_not_implemented_error("to_tiledb")
+        sort = raise_not_implemented_error("sort")
+        argsort = raise_not_implemented_error("argsort")
+        partition = raise_not_implemented_error("partition")
+        argpartition = raise_not_implemented_error("argpartition")
 
         from dask.array.utils import assert_eq
         from dask.base import compute
